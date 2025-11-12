@@ -4,27 +4,36 @@ use rusqlite::Connection;
 
 mod utils;
 
-use crate::utils::{NewExpense, add_entry, create_table, get_data_path, get_entries};
+use crate::utils::{
+    NewExpense, NewPayment, add_expense, add_payment, create_tables, get_data_path, get_entries,
+};
 
 fn main() -> Result<()> {
     let conn = Connection::open(get_data_path())?;
 
-    _ = create_table(&conn);
-    add_entry(
+    _ = create_tables(&conn);
+
+    add_expense(
         &conn,
-        NewExpense {
+        &NewExpense {
             created_at: Utc::now(),
             name: "Test".to_string(),
             periodicity: utils::Periodicity::Monthly,
-            last_paid_at: None,
+            due_date_reference: Utc::now(),
+        },
+    )?;
+    add_payment(
+        &conn,
+        &NewPayment {
+            created_at: Utc::now(),
+            expense_name: "Test".to_string(),
+            paid_at: Utc::now(),
         },
     )?;
     println!("Hello, world!");
 
-    if let Ok(entries) = get_entries(&conn) {
-        for expense in entries {
-            println!("expense: {expense:?}");
-        }
+    for expense in get_entries(&conn).unwrap() {
+        println!("expense: {expense:?}");
     }
 
     Ok(())

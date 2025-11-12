@@ -73,27 +73,13 @@ impl ToSql for Periodicity {
     }
 }
 
-impl From<Periodicity> for &'static str {
-    fn from(value: Periodicity) -> Self {
-        match value {
-            Periodicity::Weekly => "Weekly",
-            Periodicity::Biweekly => "Biweekly",
-            Periodicity::Monthly => "Monthly",
-            Periodicity::Bimonthly => "Bimonthly",
-            Periodicity::Trimonthly => "Trimonthly",
-            Periodicity::Quarterly => "Quarterly",
-            Periodicity::Biannual => "Biannual",
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub(crate) struct Expense {
     pub(crate) id: i32,
     pub(crate) created_at: chrono::DateTime<Utc>,
     pub(crate) name: String,
     pub(crate) periodicity: Periodicity,
-    pub(crate) last_paid_at: Option<chrono::DateTime<Utc>>,
+    pub(crate) due_date_reference: chrono::DateTime<Utc>,
 }
 
 #[derive(Debug, Clone)]
@@ -101,17 +87,41 @@ pub(crate) struct NewExpense {
     pub(crate) created_at: chrono::DateTime<Utc>,
     pub(crate) name: String,
     pub(crate) periodicity: Periodicity,
-    pub(crate) last_paid_at: Option<chrono::DateTime<Utc>>,
+    pub(crate) due_date_reference: chrono::DateTime<Utc>,
 }
 
-pub(crate) fn create_table(conn: &Connection) -> Result<()> {
+#[derive(Debug, Clone)]
+pub(crate) struct Payment {
+    pub(crate) id: i32,
+    pub(crate) created_at: chrono::DateTime<Utc>,
+    pub(crate) paid_at: chrono::DateTime<Utc>,
+    pub(crate) expense_name: String,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct NewPayment {
+    pub(crate) created_at: chrono::DateTime<Utc>,
+    pub(crate) paid_at: chrono::DateTime<Utc>,
+    pub(crate) expense_name: String,
+}
+
+pub(crate) fn create_tables(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE expense (
+                 id                  INTEGER PRIMARY KEY,
+                 created_at          TEXT NOT NULL,
+                 name                TEXT NOT NULL,
+                 periodicity         TEXT NOT NULL,
+                 due_date_reference  TEXT NOT NULL
+              )",
+        (),
+    )?;
+    conn.execute(
+        "CREATE TABLE payment (
                  id            INTEGER PRIMARY KEY,
                  created_at    TEXT NOT NULL,
-                 name          TEXT NOT NULL,
-                 periodicity   TEXT NOT NULL,
-                 last_paid_at  TEXT
+                 paid_at       TEXT NOT NULL,
+                 expense_name  TEXT NOT NULL
               )",
         (),
     )?;
@@ -119,31 +129,54 @@ pub(crate) fn create_table(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn add_entry(conn: &Connection, expense: NewExpense) -> Result<()> {
+pub(crate) fn add_expense(conn: &Connection, expense: &NewExpense) -> Result<()> {
     conn.execute(
-        "INSERT INTO expense (created_at, name, periodicity, last_paid_at) VALUES (?1, ?2, ?3, ?4)",
+        "INSERT INTO expense (created_at, name, periodicity, due_date_reference) VALUES (?1, ?2, ?3, ?4)",
         (
             &expense.created_at,
             &expense.name,
             &expense.periodicity,
-            &expense.last_paid_at,
+            &expense.due_date_reference,
         ),
     )?;
 
     Ok(())
 }
 
-pub(crate) fn get_entries(conn: &Connection) -> Result<Vec<Expense>> {
+pub(crate) fn add_payment(conn: &Connection, payment: &NewPayment) -> Result<()> {
+    conn.execute(
+        "INSERT INTO payment (created_at, paid_at, expense_name) VALUES (?1, ?2, ?3)",
+        (&payment.created_at, &payment.paid_at, &payment.expense_name),
+    )?;
+
+    Ok(())
+}
+
+pub(crate) fn get_entries(conn: &Connection) -> Result<Vec<(Expense, Option<Payment>)>> {
     let mut stmt =
-        conn.prepare("SELECT id, created_at, name, periodicity, last_paid_at FROM expense")?;
+        conn.prepare("SELECT expense.id, expense.created_at, expense.name, expense.periodicity, expense.due_date_reference, payment.id, payment.created_at, payment.paid_at, payment.expense_name FROM expense LEFT JOIN payment ON expense.name = payment.expense_name ORDER BY payment.paid_at DESC")?;
     let expenses = stmt.query_map([], |row| {
-        Ok(Expense {
+        let expense = Expense {
             id: row.get(0)?,
             created_at: row.get(1)?,
             name: row.get(2)?,
             periodicity: row.get(3)?,
-            last_paid_at: row.get(4)?,
-        })
+            due_date_reference: row.get(4)?,
+        };
+        let payment_id: Option<i32> = row.get(5)?;
+        if payment_id.is_some() {
+            Ok((
+                expense,
+                Some(Payment {
+                    id: row.get(5)?,
+                    created_at: row.get(6)?,
+                    paid_at: row.get(7)?,
+                    expense_name: row.get(8)?,
+                }),
+            ))
+        } else {
+            Ok((expense, None))
+        }
     })?;
 
     let mut expenses_to_return = Vec::new();
