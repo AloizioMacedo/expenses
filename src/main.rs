@@ -10,7 +10,6 @@ use crate::utils::{
 
 fn main() -> Result<()> {
     let conn = Connection::open(get_data_path())?;
-
     _ = create_tables(&conn);
 
     add_expense(
@@ -30,7 +29,6 @@ fn main() -> Result<()> {
             paid_at: Utc::now(),
         },
     )?;
-    println!("Hello, world!");
 
     for expense in get_entries(&conn).unwrap() {
         println!("expense: {expense:?}");
