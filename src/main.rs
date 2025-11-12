@@ -2,9 +2,9 @@ use anyhow::Result;
 use chrono::Utc;
 use rusqlite::Connection;
 
-mod utils;
+mod model;
 
-use crate::utils::{
+use crate::model::{
     NewExpense, NewPayment, add_expense, add_payment, create_tables, get_data_path, get_entries,
 };
 
@@ -17,7 +17,7 @@ fn main() -> Result<()> {
         &NewExpense {
             created_at: Utc::now(),
             name: "Test".to_string(),
-            periodicity: utils::Periodicity::Monthly,
+            periodicity: model::Periodicity::Monthly,
             due_date_reference: Utc::now(),
         },
     )?;
