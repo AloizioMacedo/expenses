@@ -1,10 +1,12 @@
 use chrono::Utc;
+use clap::ValueEnum;
 use color_eyre::Result;
 use rusqlite::{
     Connection, ToSql,
     types::{FromSql, FromSqlResult, ValueRef},
 };
-use std::{collections::HashMap, fs::File, path::PathBuf};
+use std::{fmt::Display, fs::File, path::PathBuf};
+use tabled::Tabled;
 
 pub(crate) fn get_data_path() -> PathBuf {
     let dir_path = std::env::home_dir()
@@ -18,7 +20,7 @@ pub(crate) fn get_data_path() -> PathBuf {
     file_path
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, ValueEnum)]
 pub(crate) enum Periodicity {
     Weekly,
     Biweekly,
@@ -27,6 +29,19 @@ pub(crate) enum Periodicity {
     Trimonthly,
     Quarterly,
     Biannual,
+}
+impl Display for Periodicity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Periodicity::Weekly => f.write_str("Weekly"),
+            Periodicity::Biweekly => f.write_str("Biweekly"),
+            Periodicity::Monthly => f.write_str("Monthly"),
+            Periodicity::Bimonthly => f.write_str("Bimonthly"),
+            Periodicity::Trimonthly => f.write_str("Trimonthly"),
+            Periodicity::Quarterly => f.write_str("Quarterly"),
+            Periodicity::Biannual => f.write_str("Biannual"),
+        }
+    }
 }
 
 impl FromSql for Periodicity {
@@ -73,6 +88,7 @@ impl ToSql for Periodicity {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub(crate) struct Expense {
     pub(crate) id: i32,
@@ -90,6 +106,7 @@ pub(crate) struct NewExpense {
     pub(crate) due_date_reference: chrono::DateTime<Utc>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub(crate) struct Payment {
     pub(crate) id: i32,
@@ -211,7 +228,23 @@ LEFT JOIN (
     Ok(expenses_to_return)
 }
 
-struct RowDisplay {
-    expense: Expense,
-    payment: Option<Payment>,
+#[derive(Tabled)]
+pub(crate) struct RowDisplay<'a> {
+    expense_name: &'a str,
+    last_payment: String,
+    periodicity: Periodicity,
+}
+
+pub(crate) fn generate_rows<'a>(entries: &'a [(Expense, Option<Payment>)]) -> Vec<RowDisplay<'a>> {
+    entries
+        .iter()
+        .map(|(expense, payment)| RowDisplay {
+            expense_name: &expense.name,
+            last_payment: payment
+                .as_ref()
+                .map(|x| x.paid_at.to_rfc2822())
+                .unwrap_or("Not paid".to_string()),
+            periodicity: expense.periodicity,
+        })
+        .collect()
 }

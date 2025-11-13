@@ -2,11 +2,13 @@ use chrono::Utc;
 use clap::{Parser, Subcommand};
 use color_eyre::Result;
 use rusqlite::Connection;
+use tabled::Table;
 
 mod model;
 
 use crate::model::{
-    NewExpense, NewPayment, add_expense, add_payment, create_tables, get_data_path, get_entries,
+    NewExpense, NewPayment, Periodicity, add_expense, add_payment, create_tables, generate_rows,
+    get_data_path, get_entries,
 };
 
 #[derive(Parser)]
@@ -20,44 +22,75 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     List,
+    Add {
+        #[arg(short, long)]
+        name: String,
+
+        #[arg(short, long, value_enum)]
+        period: Periodicity,
+
+        #[arg(short, long)]
+        date: String,
+    },
+    Pay {
+        #[arg(short, long)]
+        name: String,
+
+        #[arg(short, long)]
+        date: Option<String>,
+    },
 }
 
 fn main() -> Result<()> {
     let conn = Connection::open(get_data_path())?;
     _ = create_tables(&conn);
 
-    _ = add_expense(
-        &conn,
-        &NewExpense {
-            created_at: Utc::now(),
-            name: "Test".to_string(),
-            periodicity: model::Periodicity::Monthly,
-            due_date_reference: Utc::now(),
-        },
-    );
-    _ = add_payment(
-        &conn,
-        &NewPayment {
-            created_at: Utc::now(),
-            expense_name: "Test".to_string(),
-            paid_at: Utc::now(),
-        },
-    );
-    _ = add_payment(
-        &conn,
-        &NewPayment {
-            created_at: Utc::now(),
-            expense_name: "Test".to_string(),
-            paid_at: Utc::now(),
-        },
-    );
-
     let cli = Cli::parse();
-    match &cli.command {
+    match cli.command {
         Commands::List => {
-            for expense in get_entries(&conn).unwrap() {
-                println!("expense: {expense:?}");
-            }
+            let entries = get_entries(&conn).unwrap();
+            let rows = generate_rows(&entries);
+            let table = Table::new(rows);
+            println!("{table}")
+        }
+
+        Commands::Add { name, period, date } => {
+            let datetime = chrono::DateTime::parse_from_rfc3339(&date);
+            let Ok(datetime) = datetime else {
+                return Err(color_eyre::Report::msg(format!(
+                    "invalid RFC3339 date: {}. Expecting something like '1996-12-19T16:39:57-08:00'",
+                    date
+                )));
+            };
+            let new_expense = NewExpense {
+                created_at: Utc::now(),
+                due_date_reference: datetime.to_utc(),
+                name,
+                periodicity: period,
+            };
+            add_expense(&conn, &new_expense)?;
+        }
+        Commands::Pay { name, date } => {
+            let date = if let Some(date) = date {
+                let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&date) else {
+                    return Err(color_eyre::Report::msg(format!(
+                        "invalid RFC3339 date: {}. Expecting something like '1996-12-19T16:39:57-08:00'",
+                        date
+                    )));
+                };
+
+                datetime.to_utc()
+            } else {
+                chrono::Utc::now()
+            };
+
+            let new_payment = NewPayment {
+                created_at: chrono::Utc::now(),
+                paid_at: date,
+                expense_name: name,
+            };
+
+            add_payment(&conn, &new_payment)?;
         }
     }
 
