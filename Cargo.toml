@@ -10,3 +10,11 @@ clap = { version = "4.5.51", features = ["derive"] }
 color-eyre = "0.6.5"
 rusqlite = { version = "0.37.0", features = ["chrono"] }
 tabled = "0.20.0"
+
+
+[profile.release]
+opt-level = "z"     # Maximize execution speed
+lto = true          # Enable aggressive Link Time Optimization
+codegen-units = 1   # Reduce parallelization for better optimization, potentially increasing compile time
+panic = "abort"     # Use 'abort' for panic handling to avoid unwinding overhead
+strip = "debuginfo" # Removes debug information
