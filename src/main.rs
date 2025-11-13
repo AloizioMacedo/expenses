@@ -5,6 +5,7 @@ use rusqlite::Connection;
 mod cli;
 mod model;
 mod queries;
+mod utils;
 
 fn main() -> Result<()> {
     let conn = Connection::open(queries::get_data_path())?;

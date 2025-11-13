@@ -1,8 +1,6 @@
 use crate::model::{NewExpense, NewPayment, Periodicity};
-use crate::queries::{
-    add_expense, add_payment, delete_expense, generate_rows, get_entries, get_expense_by_name,
-    get_next_due_date,
-};
+use crate::queries::{add_expense, add_payment, delete_expense, get_entries, get_expense_by_name};
+use crate::utils::{generate_rows, get_next_due_date};
 
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::Result;
