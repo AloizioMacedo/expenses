@@ -1,6 +1,5 @@
-use crate::model::{
-    NewExpense, NewPayment, Periodicity, add_expense, add_payment, generate_rows, get_entries,
-};
+use crate::model::{NewExpense, NewPayment, Periodicity};
+use crate::queries::{add_expense, add_payment, generate_rows, get_entries};
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::Result;
 use rusqlite::{Connection, Error, ffi};
