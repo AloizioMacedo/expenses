@@ -1,7 +1,7 @@
 use chrono::Utc;
 use clap::{Parser, Subcommand};
 use color_eyre::Result;
-use rusqlite::Connection;
+use rusqlite::{Connection, Error, ffi};
 use tabled::Table;
 
 mod model;
@@ -43,6 +43,8 @@ enum Commands {
 
 fn main() -> Result<()> {
     let conn = Connection::open(get_data_path())?;
+    conn.execute("PRAGMA foreign_keys = ON;", ())?;
+
     _ = create_tables(&conn);
 
     let cli = Cli::parse();
@@ -87,10 +89,15 @@ fn main() -> Result<()> {
             let new_payment = NewPayment {
                 created_at: chrono::Utc::now(),
                 paid_at: date,
-                expense_name: name,
+                expense_name: &name,
             };
 
-            add_payment(&conn, &new_payment)?;
+            if let Err(Error::SqliteFailure(ffi::Error { extended_code, .. }, _)) =
+                add_payment(&conn, &new_payment)
+                && extended_code == 787
+            {
+                eprintln!("ERROR: expense with name {} does not exist", &name)
+            };
         }
     }
 

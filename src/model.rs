@@ -2,7 +2,7 @@ use chrono::Utc;
 use clap::ValueEnum;
 use color_eyre::Result;
 use rusqlite::{
-    Connection, ToSql,
+    Connection, Error, ToSql,
     types::{FromSql, FromSqlResult, ValueRef},
 };
 use std::{fmt::Display, fs::File, path::PathBuf};
@@ -116,10 +116,10 @@ pub(crate) struct Payment {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct NewPayment {
+pub(crate) struct NewPayment<'a> {
     pub(crate) created_at: chrono::DateTime<Utc>,
     pub(crate) paid_at: chrono::DateTime<Utc>,
-    pub(crate) expense_name: String,
+    pub(crate) expense_name: &'a str,
 }
 
 pub(crate) fn create_tables(conn: &Connection) -> Result<()> {
@@ -138,7 +138,8 @@ pub(crate) fn create_tables(conn: &Connection) -> Result<()> {
                  id            INTEGER PRIMARY KEY,
                  created_at    TEXT NOT NULL,
                  paid_at       TEXT NOT NULL,
-                 expense_name  TEXT NOT NULL
+                 expense_name  TEXT NOT NULL,
+                 FOREIGN KEY (expense_name) REFERENCES expense(name) ON DELETE CASCADE ON UPDATE CASCADE
               )",
         (),
     )?;
@@ -160,7 +161,7 @@ pub(crate) fn add_expense(conn: &Connection, expense: &NewExpense) -> Result<()>
     Ok(())
 }
 
-pub(crate) fn add_payment(conn: &Connection, payment: &NewPayment) -> Result<()> {
+pub(crate) fn add_payment(conn: &Connection, payment: &NewPayment) -> Result<(), Error> {
     conn.execute(
         "INSERT INTO payment (created_at, paid_at, expense_name) VALUES (?1, ?2, ?3)",
         (&payment.created_at, &payment.paid_at, &payment.expense_name),
