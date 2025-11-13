@@ -1,10 +1,10 @@
-use anyhow::Result;
 use chrono::Utc;
+use color_eyre::Result;
 use rusqlite::{
     Connection, ToSql,
     types::{FromSql, FromSqlResult, ValueRef},
 };
-use std::{fs::File, path::PathBuf};
+use std::{collections::HashMap, fs::File, path::PathBuf};
 
 pub(crate) fn get_data_path() -> PathBuf {
     let dir_path = std::env::home_dir()
@@ -110,7 +110,7 @@ pub(crate) fn create_tables(conn: &Connection) -> Result<()> {
         "CREATE TABLE expense (
                  id                  INTEGER PRIMARY KEY,
                  created_at          TEXT NOT NULL,
-                 name                TEXT NOT NULL,
+                 name                TEXT UNIQUE NOT NULL,
                  periodicity         TEXT NOT NULL,
                  due_date_reference  TEXT NOT NULL
               )",
@@ -153,8 +153,29 @@ pub(crate) fn add_payment(conn: &Connection, payment: &NewPayment) -> Result<()>
 }
 
 pub(crate) fn get_entries(conn: &Connection) -> Result<Vec<(Expense, Option<Payment>)>> {
-    let mut stmt =
-        conn.prepare("SELECT expense.id, expense.created_at, expense.name, expense.periodicity, expense.due_date_reference, payment.id, payment.created_at, payment.paid_at, payment.expense_name FROM expense LEFT JOIN payment ON expense.name = payment.expense_name ORDER BY payment.paid_at DESC")?;
+    let mut stmt = conn.prepare(
+        "SELECT 
+  e.id AS expense_id,
+  e.created_at AS expense_created_at,
+  e.name AS expense_name,
+  e.periodicity,
+  e.due_date_reference,
+  p.id AS payment_id,
+  p.created_at AS payment_created_at,
+  p.paid_at,
+  p.expense_name AS payment_expense_name
+FROM expense e
+LEFT JOIN (
+  SELECT p1.*
+  FROM payment p1
+  INNER JOIN (
+    SELECT expense_name, MAX(paid_at) AS latest_paid_at
+    FROM payment
+    GROUP BY expense_name
+  ) p2 ON p1.expense_name = p2.expense_name
+        AND p1.paid_at = p2.latest_paid_at
+) p ON e.name = p.expense_name;",
+    )?;
     let expenses = stmt.query_map([], |row| {
         let expense = Expense {
             id: row.get(0)?,
@@ -188,4 +209,9 @@ pub(crate) fn get_entries(conn: &Connection) -> Result<Vec<(Expense, Option<Paym
     }
 
     Ok(expenses_to_return)
+}
+
+struct RowDisplay {
+    expense: Expense,
+    payment: Option<Payment>,
 }
