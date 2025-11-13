@@ -1,4 +1,4 @@
-use chrono::{Days, Local, Months, Utc};
+use chrono::{Datelike, Days, Local, Months, Utc};
 use tabled::Tabled;
 
 use crate::model::{Expense, Payment, Periodicity};
@@ -22,6 +22,15 @@ pub(crate) fn get_next_due_date(
     if reference > now {
         return reference;
     }
+
+    // Making the loops below O(1) on (now - reference). We could try calculating things and
+    // untangling issues like leap days, months having different durations etc,
+    // but I don't think it is worth it.
+    if reference.year() < now.year() - 1
+        && let Some(new_ref) = reference.with_year(now.year())
+    {
+        reference = new_ref;
+    };
 
     match periodicity {
         Periodicity::Weekly => {
