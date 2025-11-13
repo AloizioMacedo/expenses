@@ -2,6 +2,7 @@ use crate::model::{NewExpense, NewPayment, Periodicity};
 use crate::queries::{add_expense, add_payment, delete_expense, get_entries, get_expense_by_name};
 use crate::utils::{generate_rows, get_next_due_date};
 
+use chrono::{Local, NaiveTime};
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::Result;
 use rusqlite::{Connection, Error, ffi};
@@ -63,16 +64,21 @@ impl Cli {
             }
 
             Commands::Add { name, period, date } => {
-                let datetime = chrono::DateTime::parse_from_rfc3339(date);
-                let Ok(datetime) = datetime else {
+                let naive_date = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d");
+                let Ok(naive_date) = naive_date else {
                     return Err(color_eyre::Report::msg(format!(
-                        "invalid RFC3339 date: {}. Expecting something like '1996-12-19T16:39:57-08:00'",
+                        "invalid date: {}. Expecting something like '1996-12-19'",
                         date
                     )));
                 };
+                let naive_datetime = chrono::NaiveDateTime::new(
+                    naive_date,
+                    NaiveTime::from_hms_opt(0, 0, 0).expect("arguments are valid"),
+                );
+
                 let new_expense = NewExpense {
                     created_at: chrono::Utc::now(),
-                    due_date_reference: datetime.to_utc(),
+                    due_date_reference: naive_datetime.and_local_timezone(Local).unwrap().to_utc(),
                     name,
                     periodicity: *period,
                 };
