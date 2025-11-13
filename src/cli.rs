@@ -31,7 +31,7 @@ enum Commands {
         #[arg(short, long, value_enum)]
         period: Periodicity,
 
-        /// Date when to pay the expense. Will be used as reference for future payments. Should be in RFC3339 format
+        /// Date when to pay the expense. Will be used as reference for future payments. Should be in %Y-%m-%d format
         #[arg(short, long)]
         date: String,
     },
@@ -62,7 +62,6 @@ impl Cli {
                 let table = Table::new(rows);
                 println!("{table}");
             }
-
             Commands::Add { name, period, date } => {
                 let naive_date = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d");
                 let Ok(naive_date) = naive_date else {
