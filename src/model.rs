@@ -85,9 +85,9 @@ pub(crate) struct Expense {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct NewExpense {
+pub(crate) struct NewExpense<'a> {
     pub(crate) created_at: chrono::DateTime<Utc>,
-    pub(crate) name: String,
+    pub(crate) name: &'a str,
     pub(crate) periodicity: Periodicity,
     pub(crate) due_date_reference: chrono::DateTime<Utc>,
 }

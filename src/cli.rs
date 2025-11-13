@@ -1,10 +1,12 @@
 use crate::model::{NewExpense, NewPayment, Periodicity};
 use crate::queries::{add_expense, add_payment, delete_expense, generate_rows, get_entries};
+
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::Result;
 use rusqlite::{Connection, Error, ffi};
 use tabled::Table;
 
+/// Expenses tracker
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 #[command(propagate_version = true)]
@@ -15,33 +17,43 @@ pub(crate) struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Lists all expenses
     List,
+    /// Adds an expense
     Add {
+        /// Name of the expense. Will be used as an identifier
         #[arg(short, long)]
         name: String,
 
+        /// Periodicity of the expense
         #[arg(short, long, value_enum)]
         period: Periodicity,
 
+        /// Date when to pay the expense. Will be used as reference for future payments. Should be in RFC3339 format
         #[arg(short, long)]
         date: String,
     },
+    /// Registers a payment to an expense
     Pay {
+        /// Name of the expense to pay
         #[arg(short, long)]
         name: String,
 
+        /// When the expense was paid. If not specified, current time is assumed
         #[arg(short, long)]
         date: Option<String>,
     },
+    /// Deletes an expense
     Delete {
+        /// Name of the expense to delete
         #[arg(short, long)]
         name: String,
     },
 }
 
 impl Cli {
-    pub(crate) fn run(self, conn: &Connection) -> Result<()> {
-        match self.command {
+    pub(crate) fn run(&self, conn: &Connection) -> Result<()> {
+        match &self.command {
             Commands::List => {
                 let entries = get_entries(conn).unwrap();
                 let rows = generate_rows(&entries);
@@ -50,7 +62,7 @@ impl Cli {
             }
 
             Commands::Add { name, period, date } => {
-                let datetime = chrono::DateTime::parse_from_rfc3339(&date);
+                let datetime = chrono::DateTime::parse_from_rfc3339(date);
                 let Ok(datetime) = datetime else {
                     return Err(color_eyre::Report::msg(format!(
                         "invalid RFC3339 date: {}. Expecting something like '1996-12-19T16:39:57-08:00'",
@@ -61,13 +73,13 @@ impl Cli {
                     created_at: chrono::Utc::now(),
                     due_date_reference: datetime.to_utc(),
                     name,
-                    periodicity: period,
+                    periodicity: *period,
                 };
                 add_expense(conn, &new_expense)?;
             }
             Commands::Pay { name, date } => {
                 let date = if let Some(date) = date {
-                    let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(&date) else {
+                    let Ok(datetime) = chrono::DateTime::parse_from_rfc3339(date) else {
                         return Err(color_eyre::Report::msg(format!(
                             "invalid RFC3339 date: {}. Expecting something like '1996-12-19T16:39:57-08:00'",
                             date
@@ -82,7 +94,7 @@ impl Cli {
                 let new_payment = NewPayment {
                     created_at: chrono::Utc::now(),
                     paid_at: date,
-                    expense_name: &name,
+                    expense_name: name,
                 };
 
                 if let Err(Error::SqliteFailure(ffi::Error { extended_code, .. }, _)) =
@@ -95,7 +107,7 @@ impl Cli {
                     )));
                 };
             }
-            Commands::Delete { name } => delete_expense(conn, &name)?,
+            Commands::Delete { name } => delete_expense(conn, name)?,
         }
 
         Ok(())
