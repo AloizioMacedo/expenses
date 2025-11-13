@@ -1,5 +1,6 @@
 use std::{fs::File, path::PathBuf};
 
+use chrono::Local;
 use rusqlite::{Connection, Error, Result};
 use tabled::Tabled;
 
@@ -144,7 +145,7 @@ pub(crate) fn generate_rows<'a>(entries: &'a [(Expense, Option<Payment>)]) -> Ve
             expense_name: &expense.name,
             last_payment: payment
                 .as_ref()
-                .map(|x| x.paid_at.to_rfc2822())
+                .map(|x| x.paid_at.with_timezone(&Local).to_rfc2822())
                 .unwrap_or("Not paid".to_string()),
             periodicity: expense.periodicity,
         })
