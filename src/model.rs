@@ -93,6 +93,7 @@ pub(crate) struct Payment {
     pub(crate) created_at: chrono::DateTime<Utc>,
     pub(crate) paid_at: chrono::DateTime<Utc>,
     pub(crate) expense_name: String,
+    pub(crate) due_date_of_expense: chrono::DateTime<Utc>,
 }
 
 #[derive(Debug, Clone)]
@@ -100,4 +101,5 @@ pub(crate) struct NewPayment<'a> {
     pub(crate) created_at: chrono::DateTime<Utc>,
     pub(crate) paid_at: chrono::DateTime<Utc>,
     pub(crate) expense_name: &'a str,
+    pub(crate) due_date_of_expense: chrono::DateTime<Utc>,
 }

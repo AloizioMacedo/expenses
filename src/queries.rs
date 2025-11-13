@@ -1,6 +1,6 @@
 use std::{fs::File, path::PathBuf};
 
-use chrono::Local;
+use chrono::{Days, Local, Months, Utc};
 use rusqlite::{Connection, Error, Result};
 use tabled::Tabled;
 
@@ -31,10 +31,11 @@ pub(crate) fn create_tables(conn: &Connection) -> Result<()> {
     )?;
     conn.execute(
     "CREATE TABLE payment (
-                 id            INTEGER PRIMARY KEY,
-                 created_at    TEXT NOT NULL,
-                 paid_at       TEXT NOT NULL,
-                 expense_name  TEXT NOT NULL,
+                 id                  INTEGER PRIMARY KEY,
+                 created_at          TEXT NOT NULL,
+                 paid_at             TEXT NOT NULL,
+                 expense_name        TEXT NOT NULL,
+                 due_date_of_expense TEXT NOT NULL,
                  FOREIGN KEY (expense_name) REFERENCES expense(name) ON DELETE CASCADE ON UPDATE CASCADE
               )",
     (),
@@ -59,8 +60,13 @@ pub(crate) fn add_expense(conn: &Connection, expense: &NewExpense) -> Result<()>
 
 pub(crate) fn add_payment(conn: &Connection, payment: &NewPayment) -> Result<(), Error> {
     conn.execute(
-        "INSERT INTO payment (created_at, paid_at, expense_name) VALUES (?1, ?2, ?3)",
-        (&payment.created_at, &payment.paid_at, &payment.expense_name),
+        "INSERT INTO payment (created_at, paid_at, expense_name, due_date_of_expense) VALUES (?1, ?2, ?3, ?4)",
+        (
+            &payment.created_at,
+            &payment.paid_at,
+            &payment.expense_name,
+            &payment.due_date_of_expense,
+        ),
     )?;
 
     Ok(())
@@ -70,6 +76,21 @@ pub(crate) fn delete_expense(conn: &Connection, name: &str) -> Result<()> {
     conn.execute("DELETE FROM expense WHERE expense.name = ?1", (name,))?;
 
     Ok(())
+}
+
+pub(crate) fn get_expense_by_name(conn: &Connection, name: &str) -> Result<Option<Expense>> {
+    let mut stmt = conn.prepare("SELECT id, created_at, due_date_reference, name, periodicity FROM expense WHERE expense.name = ?1")?;
+
+    stmt.query_map([name], |row| {
+        Ok(Expense {
+            id: row.get(0)?,
+            created_at: row.get(1)?,
+            due_date_reference: row.get(2)?,
+            name: row.get(3)?,
+            periodicity: row.get(4)?,
+        })
+    })
+    .map(|x| x.flatten().next())
 }
 
 pub(crate) fn get_entries(conn: &Connection) -> Result<Vec<(Expense, Option<Payment>)>> {
@@ -83,7 +104,8 @@ pub(crate) fn get_entries(conn: &Connection) -> Result<Vec<(Expense, Option<Paym
   p.id AS payment_id,
   p.created_at AS payment_created_at,
   p.paid_at,
-  p.expense_name AS payment_expense_name
+  p.expense_name AS payment_expense_name,
+  p.due_date_of_expense AS payment_due_date_of_expense
 FROM expense e
 LEFT JOIN (
   SELECT p1.*
@@ -113,6 +135,7 @@ LEFT JOIN (
                     created_at: row.get(6)?,
                     paid_at: row.get(7)?,
                     expense_name: row.get(8)?,
+                    due_date_of_expense: row.get(9)?,
                 }),
             ))
         } else {
@@ -136,18 +159,93 @@ pub(crate) struct RowDisplay<'a> {
     expense_name: &'a str,
     last_payment: String,
     periodicity: Periodicity,
+    next_due_date: String,
+    days_left: i64,
+    is_paid: &'static str,
+}
+
+pub(crate) fn get_next_due_date(
+    reference: &chrono::DateTime<Utc>,
+    periodicity: Periodicity,
+) -> chrono::DateTime<Utc> {
+    let now = Utc::now();
+    let mut reference = *reference;
+    if reference > now {
+        return reference;
+    }
+
+    match periodicity {
+        Periodicity::Weekly => {
+            while reference < now {
+                reference = reference.checked_add_days(Days::new(7)).expect("should not be reaching out of bounds for time operations. Are you in the FAR future? o_o");
+            }
+
+            reference
+        }
+        Periodicity::Monthly => {
+            while reference < now {
+                reference = reference.checked_add_months(Months::new(1)).expect("should not be reaching out of bounds for time operations. Are you in the FAR future? o_o");
+            }
+
+            reference
+        }
+        Periodicity::Bimonthly => {
+            while reference < now {
+                reference = reference.checked_add_months(Months::new(2)).expect("should not be reaching out of bounds for time operations. Are you in the FAR future? o_o");
+            }
+
+            reference
+        }
+        Periodicity::Trimonthly => {
+            while reference < now {
+                reference = reference.checked_add_months(Months::new(3)).expect("should not be reaching out of bounds for time operations. Are you in the FAR future? o_o");
+            }
+
+            reference
+        }
+        Periodicity::Quarterly => {
+            while reference < now {
+                reference = reference.checked_add_months(Months::new(4)).expect("should not be reaching out of bounds for time operations. Are you in the FAR future? o_o");
+            }
+
+            reference
+        }
+        Periodicity::Biannual => {
+            while reference < now {
+                reference = reference.checked_add_months(Months::new(6)).expect("should not be reaching out of bounds for time operations. Are you in the FAR future? o_o");
+            }
+
+            reference
+        }
+    }
 }
 
 pub(crate) fn generate_rows<'a>(entries: &'a [(Expense, Option<Payment>)]) -> Vec<RowDisplay<'a>> {
     entries
         .iter()
-        .map(|(expense, payment)| RowDisplay {
-            expense_name: &expense.name,
-            last_payment: payment
-                .as_ref()
-                .map(|x| x.paid_at.with_timezone(&Local).to_rfc2822())
-                .unwrap_or("Not paid".to_string()),
-            periodicity: expense.periodicity,
+        .map(|(expense, payment)| {
+            let next_due_date = get_next_due_date(&expense.due_date_reference, expense.periodicity);
+
+            RowDisplay {
+                expense_name: &expense.name,
+                last_payment: payment
+                    .as_ref()
+                    .map(|p| p.paid_at.with_timezone(&Local).date_naive().to_string())
+                    .unwrap_or("Not paid".to_string()),
+                periodicity: expense.periodicity,
+                next_due_date: next_due_date.with_timezone(&Local).date_naive().to_string(),
+                days_left: next_due_date.signed_duration_since(Utc::now()).num_days(),
+                is_paid: payment
+                    .as_ref()
+                    .map(|p| {
+                        if p.due_date_of_expense == next_due_date {
+                            "✅"
+                        } else {
+                            "❌"
+                        }
+                    })
+                    .unwrap_or("❌"),
+            }
         })
         .collect()
 }

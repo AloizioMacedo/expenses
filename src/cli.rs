@@ -1,5 +1,8 @@
 use crate::model::{NewExpense, NewPayment, Periodicity};
-use crate::queries::{add_expense, add_payment, delete_expense, generate_rows, get_entries};
+use crate::queries::{
+    add_expense, add_payment, delete_expense, generate_rows, get_entries, get_expense_by_name,
+    get_next_due_date,
+};
 
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::Result;
@@ -90,22 +93,36 @@ impl Cli {
                 } else {
                     chrono::Utc::now()
                 };
+                let expense = get_expense_by_name(conn, name)?;
+                let Some(expense) = expense else {
+                    return Err(color_eyre::Report::msg(format!(
+                        "expense with name {} does not exist",
+                        name
+                    )));
+                };
+                let next_due_date =
+                    get_next_due_date(&expense.due_date_reference, expense.periodicity);
 
                 let new_payment = NewPayment {
                     created_at: chrono::Utc::now(),
                     paid_at: date,
                     expense_name: name,
+                    due_date_of_expense: next_due_date,
                 };
 
+                let add_payment_result = add_payment(conn, &new_payment);
+
                 if let Err(Error::SqliteFailure(ffi::Error { extended_code, .. }, _)) =
-                    add_payment(conn, &new_payment)
+                    add_payment_result
                     && extended_code == 787
                 {
                     return Err(color_eyre::Report::msg(format!(
                         "expense with name {} does not exist",
                         name
                     )));
-                };
+                }
+
+                add_payment_result?;
             }
             Commands::Delete { name } => delete_expense(conn, name)?,
         }
