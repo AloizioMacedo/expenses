@@ -28,7 +28,7 @@ enum Commands {
         name: String,
 
         /// Periodicity of the expense
-        #[arg(short, long, value_enum)]
+        #[arg(short, long, value_enum, default_value = "monthly")]
         period: Periodicity,
 
         /// Date when to pay the expense. Will be used as reference for future payments. Should be in %Y-%m-%d format
