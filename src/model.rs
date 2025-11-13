@@ -9,7 +9,6 @@ use std::fmt::Display;
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub(crate) enum Periodicity {
     Weekly,
-    Biweekly,
     Monthly,
     Bimonthly,
     Trimonthly,
@@ -20,7 +19,6 @@ impl Display for Periodicity {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Periodicity::Weekly => f.write_str("Weekly"),
-            Periodicity::Biweekly => f.write_str("Biweekly"),
             Periodicity::Monthly => f.write_str("Monthly"),
             Periodicity::Bimonthly => f.write_str("Bimonthly"),
             Periodicity::Trimonthly => f.write_str("Trimonthly"),
@@ -34,7 +32,6 @@ impl FromSql for Periodicity {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         match value.as_str() {
             Ok("Weekly") => FromSqlResult::Ok(Periodicity::Weekly),
-            Ok("Biweekly") => FromSqlResult::Ok(Periodicity::Biweekly),
             Ok("Monthly") => FromSqlResult::Ok(Periodicity::Monthly),
             Ok("Bimonthly") => FromSqlResult::Ok(Periodicity::Bimonthly),
             Ok("Trimonthly") => FromSqlResult::Ok(Periodicity::Trimonthly),
@@ -50,9 +47,6 @@ impl ToSql for Periodicity {
         match self {
             Periodicity::Weekly => rusqlite::Result::Ok(rusqlite::types::ToSqlOutput::Borrowed(
                 ValueRef::Text("Weekly".as_bytes()),
-            )),
-            Periodicity::Biweekly => rusqlite::Result::Ok(rusqlite::types::ToSqlOutput::Borrowed(
-                ValueRef::Text("Biweekly".as_bytes()),
             )),
             Periodicity::Monthly => rusqlite::Result::Ok(rusqlite::types::ToSqlOutput::Borrowed(
                 ValueRef::Text("Monthly".as_bytes()),
