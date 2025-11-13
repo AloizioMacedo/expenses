@@ -1,5 +1,5 @@
 use crate::model::{NewExpense, NewPayment, Periodicity};
-use crate::queries::{add_expense, add_payment, generate_rows, get_entries};
+use crate::queries::{add_expense, add_payment, delete_expense, generate_rows, get_entries};
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::Result;
 use rusqlite::{Connection, Error, ffi};
@@ -32,6 +32,10 @@ enum Commands {
 
         #[arg(short, long)]
         date: Option<String>,
+    },
+    Delete {
+        #[arg(short, long)]
+        name: String,
     },
 }
 
@@ -91,6 +95,7 @@ impl Cli {
                     )));
                 };
             }
+            Commands::Delete { name } => delete_expense(conn, &name)?,
         }
 
         Ok(())

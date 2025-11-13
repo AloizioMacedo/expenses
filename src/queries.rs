@@ -5,7 +5,7 @@ use tabled::Tabled;
 
 use crate::model::{Expense, NewExpense, NewPayment, Payment, Periodicity};
 
-pub fn get_data_path() -> PathBuf {
+pub(crate) fn get_data_path() -> PathBuf {
     let dir_path = std::env::home_dir()
         .expect("should have home dir defined.")
         .join(".expenses");
@@ -61,6 +61,12 @@ pub(crate) fn add_payment(conn: &Connection, payment: &NewPayment) -> Result<(),
         "INSERT INTO payment (created_at, paid_at, expense_name) VALUES (?1, ?2, ?3)",
         (&payment.created_at, &payment.paid_at, &payment.expense_name),
     )?;
+
+    Ok(())
+}
+
+pub(crate) fn delete_expense(conn: &Connection, name: &str) -> Result<()> {
+    conn.execute("DELETE FROM expense WHERE expense.name = ?1", (name,))?;
 
     Ok(())
 }
