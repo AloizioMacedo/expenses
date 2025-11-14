@@ -2,13 +2,14 @@
 name = "expenses"
 version = "0.1.0"
 edition = "2024"
+repository = "https://github.com/AloizioMacedo/expenses"
 
 [dependencies]
 anyhow = "1.0.100"
 chrono = "0.4.42"
 clap = { version = "4.5.51", features = ["derive"] }
 color-eyre = "0.6.5"
-rusqlite = { version = "0.37.0", features = ["chrono"] }
+rusqlite = { version = "0.37.0", features = ["chrono", "bundled"] }
 tabled = "0.20.0"
 
 
@@ -18,3 +19,8 @@ lto = true          # Enable aggressive Link Time Optimization
 codegen-units = 1   # Reduce parallelization for better optimization, potentially increasing compile time
 panic = "abort"     # Use 'abort' for panic handling to avoid unwinding overhead
 strip = "debuginfo" # Removes debug information
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
