@@ -24,7 +24,6 @@ enum Commands {
     /// Adds an expense
     Add {
         /// Name of the expense. Will be used as an identifier
-        #[arg(short, long)]
         name: String,
 
         /// Periodicity of the expense
@@ -38,7 +37,6 @@ enum Commands {
     /// Registers a payment to an expense
     Pay {
         /// Name of the expense to pay
-        #[arg(short, long)]
         name: String,
 
         /// When the expense was paid. If not specified, current time is assumed
@@ -48,7 +46,6 @@ enum Commands {
     /// Deletes an expense
     Delete {
         /// Name of the expense to delete
-        #[arg(short, long)]
         name: String,
     },
 }
