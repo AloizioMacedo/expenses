@@ -13,13 +13,13 @@ pub(crate) struct RowDisplay<'a> {
     is_paid: &'static str,
 }
 
-pub(crate) fn get_next_due_date(
+fn get_next_due_date_aux(
     reference: &chrono::DateTime<Utc>,
+    now: &chrono::DateTime<Utc>,
     periodicity: Periodicity,
 ) -> chrono::DateTime<Utc> {
-    let now = Utc::now();
     let mut reference = *reference;
-    if reference > now {
+    if reference > *now {
         return reference;
     }
 
@@ -52,48 +52,55 @@ pub(crate) fn get_next_due_date(
 
     match periodicity {
         Periodicity::Weekly => {
-            while reference < now {
+            while reference < *now {
                 reference = reference.checked_add_days(Days::new(7)).expect("should not be reaching out of bounds for time operations. Chosen day might be invalid as periodic input (E.g., monthly and 31), or you might be in the FAR future? o_o");
             }
 
             reference
         }
         Periodicity::Monthly => {
-            while reference < now {
+            while reference < *now {
                 reference = reference.checked_add_months(Months::new(1)).expect("should not be reaching out of bounds for time operations. Chosen day might be invalid as periodic input (E.g., monthly and 31), or you might be in the FAR future? o_o");
             }
 
             reference
         }
         Periodicity::Bimonthly => {
-            while reference < now {
+            while reference < *now {
                 reference = reference.checked_add_months(Months::new(2)).expect("should not be reaching out of bounds for time operations. Chosen day might be invalid as periodic input (E.g., monthly and 31), or you might be in the FAR future? o_o");
             }
 
             reference
         }
         Periodicity::Trimonthly => {
-            while reference < now {
+            while reference < *now {
                 reference = reference.checked_add_months(Months::new(3)).expect("should not be reaching out of bounds for time operations. Chosen day might be invalid as periodic input (E.g., monthly and 31), or you might be in the FAR future? o_o");
             }
 
             reference
         }
         Periodicity::Quarterly => {
-            while reference < now {
+            while reference < *now {
                 reference = reference.checked_add_months(Months::new(4)).expect("should not be reaching out of bounds for time operations. Chosen day might be invalid as periodic input (E.g., monthly and 31), or you might be in the FAR future? o_o");
             }
 
             reference
         }
         Periodicity::Biannual => {
-            while reference < now {
+            while reference < *now {
                 reference = reference.checked_add_months(Months::new(6)).expect("should not be reaching out of bounds for time operations. Chosen day might be invalid as periodic input (E.g., monthly and 31), or you might be in the FAR future? o_o");
             }
 
             reference
         }
     }
+}
+
+pub(crate) fn get_next_due_date(
+    reference: &chrono::DateTime<Utc>,
+    periodicity: Periodicity,
+) -> chrono::DateTime<Utc> {
+    get_next_due_date_aux(reference, &Utc::now(), periodicity)
 }
 
 pub(crate) fn generate_rows<'a>(entries: &'a [(Expense, Option<Payment>)]) -> Vec<RowDisplay<'a>> {
@@ -124,4 +131,36 @@ pub(crate) fn generate_rows<'a>(entries: &'a [(Expense, Option<Payment>)]) -> Ve
             }
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::DateTime;
+
+    use super::*;
+
+    #[test]
+    fn test_next_date() {
+        let reference = DateTime::parse_from_rfc3339("2012-05-12T00:00:01+00:00")
+            .unwrap()
+            .to_utc();
+        let now = DateTime::parse_from_rfc3339("2029-03-21T00:00:01+00:00")
+            .unwrap()
+            .to_utc();
+
+        let next_due_date = get_next_due_date_aux(&reference, &now, Periodicity::Weekly);
+        assert_eq!(
+            next_due_date,
+            DateTime::parse_from_rfc3339("2029-03-24T00:00:01+00:00")
+                .unwrap()
+                .to_utc()
+        );
+        let next_due_date = get_next_due_date_aux(&reference, &now, Periodicity::Monthly);
+        assert_eq!(
+            next_due_date,
+            DateTime::parse_from_rfc3339("2029-04-12T00:00:01+00:00")
+                .unwrap()
+                .to_utc()
+        );
+    }
 }
