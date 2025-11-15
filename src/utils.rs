@@ -26,51 +26,69 @@ pub(crate) fn get_next_due_date(
     // Making the loops below O(1) on (now - reference). We could try calculating things and
     // untangling issues like leap days, months having different durations etc,
     // but I don't think it is worth it.
-    if reference.year() < now.year() - 1
-        && let Some(new_ref) = reference.with_year(now.year())
-    {
-        reference = new_ref;
-    };
+    match periodicity {
+        Periodicity::Weekly => {
+            if reference.year() < now.year() - 1
+                && let Some(new_ref) = reference.with_year(now.year() - 1)
+            {
+                for i in 0..7 {
+                    if let Some(sub_ref) = new_ref.checked_sub_days(Days::new(i))
+                        && sub_ref.weekday() == reference.weekday()
+                    {
+                        reference = sub_ref;
+                        break;
+                    }
+                }
+            };
+        }
+        _ => {
+            if reference.year() < now.year() - 1
+                && let Some(new_ref) = reference.with_year(now.year() - 1)
+            {
+                reference = new_ref;
+            };
+        }
+    }
 
     match periodicity {
         Periodicity::Weekly => {
             while reference < now {
-                reference = reference.checked_add_days(Days::new(7)).expect("should not be reaching out of bounds for time operations. Are you in the FAR future? o_o");
+                reference = reference.checked_add_days(Days::new(7)).expect("should not be reaching out of bounds for time operations. Chosen day might be invalid as periodic input (E.g., monthly and 31), or you might be in the FAR future? o_o");
             }
 
             reference
         }
         Periodicity::Monthly => {
             while reference < now {
-                reference = reference.checked_add_months(Months::new(1)).expect("should not be reaching out of bounds for time operations. Are you in the FAR future? o_o");
+                reference = reference.checked_add_months(Months::new(1)).expect("should not be reaching out of bounds for time operations. Chosen day might be invalid as periodic input (E.g., monthly and 31), or you might be in the FAR future? o_o");
             }
 
             reference
         }
         Periodicity::Bimonthly => {
             while reference < now {
-                reference = reference.checked_add_months(Months::new(2)).expect("should not be reaching out of bounds for time operations. Are you in the FAR future? o_o");
+                reference = reference.checked_add_months(Months::new(2)).expect("should not be reaching out of bounds for time operations. Chosen day might be invalid as periodic input (E.g., monthly and 31), or you might be in the FAR future? o_o");
             }
 
             reference
         }
         Periodicity::Trimonthly => {
             while reference < now {
-                reference = reference.checked_add_months(Months::new(3)).expect("should not be reaching out of bounds for time operations. Are you in the FAR future? o_o");
+                reference = reference.checked_add_months(Months::new(3)).expect("should not be reaching out of bounds for time operations. Chosen day might be invalid as periodic input (E.g., monthly and 31), or you might be in the FAR future? o_o");
             }
 
             reference
         }
         Periodicity::Quarterly => {
             while reference < now {
-                reference = reference.checked_add_months(Months::new(4)).expect("should not be reaching out of bounds for time operations. Are you in the FAR future? o_o");
+                reference = reference.checked_add_months(Months::new(4)).expect("should not be reaching out of bounds for time operations. Chosen day might be invalid as periodic input (E.g., monthly and 31), or you might be in the FAR future? o_o");
             }
 
             reference
         }
         Periodicity::Biannual => {
             while reference < now {
-                reference = reference.checked_add_months(Months::new(6)).expect("should not be reaching out of bounds for time operations. Are you in the FAR future? o_o");
+                reference = reference.checked_add_months(Months::new(6)).expect("should not be reaching out of bounds for time operations. Chosen day might be invalid as periodic input (E.g., monthly and 31), or you might be in the FAR future? o_o");
             }
 
             reference
