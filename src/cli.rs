@@ -2,7 +2,7 @@ use crate::model::{NewExpense, NewPayment, Periodicity};
 use crate::queries::{add_expense, add_payment, delete_expense, get_entries, get_expense_by_name};
 use crate::utils::{generate_rows, get_next_due_date};
 
-use chrono::{Local, NaiveTime};
+use chrono::{Datelike, Local, NaiveTime};
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::Result;
 use rusqlite::{Connection, Error, ffi};
@@ -67,6 +67,11 @@ impl Cli {
                         date
                     )));
                 };
+                if naive_date.day() > 28 && !matches!(period, Periodicity::Weekly) {
+                    return Err(color_eyre::Report::msg(
+                        "please choose a day smaller than 29 when using this period",
+                    ));
+                }
                 let naive_datetime = chrono::NaiveDateTime::new(
                     naive_date,
                     NaiveTime::from_hms_opt(0, 0, 0).expect("arguments are valid"),
