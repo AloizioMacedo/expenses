@@ -74,7 +74,7 @@ impl Cli {
                 }
                 let naive_datetime = chrono::NaiveDateTime::new(
                     naive_date,
-                    NaiveTime::from_hms_opt(0, 0, 0).expect("arguments are valid"),
+                    NaiveTime::from_hms_opt(0, 0, 1).expect("arguments are valid"),
                 );
 
                 let new_expense = NewExpense {
