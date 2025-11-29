@@ -7,8 +7,8 @@ use clap::{Parser, Subcommand};
 use color_eyre::eyre::Result;
 use rusqlite::{Connection, Error, ffi};
 use tabled::Table;
-use tabled::settings::Highlight;
-use tabled::settings::object::Rows;
+use tabled::settings::object::{Row, Rows};
+use tabled::settings::{Highlight, Modify};
 
 /// Expenses tracker
 #[derive(Parser)]
@@ -72,6 +72,7 @@ impl Cli {
                             row.periodicity.get_row_color_on_time_left(row.days_left)
                         };
 
+                        table.with(Modify::new(Rows::one(i + 1)).with(&color));
                         table.with(Highlight::colored(Rows::one(i + 1), color));
                     }
                 }
