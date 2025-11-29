@@ -16,6 +16,27 @@ pub(crate) enum Periodicity {
     Biannual,
 }
 
+impl Periodicity {
+    pub fn get_row_color_on_time_left(&self, days_left: i64) -> tabled::settings::Color {
+        let (red_range, yellow_range) = match self {
+            Periodicity::Weekly => (0..2, 2..=3),
+            Periodicity::Monthly => (0..5, 5..=10),
+            Periodicity::Bimonthly => (0..10, 10..=15),
+            Periodicity::Trimonthly => (0..15, 15..=30),
+            Periodicity::Quarterly => (0..20, 20..=30),
+            Periodicity::Biannual => (0..30, 30..=60),
+        };
+
+        if red_range.contains(&days_left) {
+            return tabled::settings::Color::FG_RED;
+        } else if yellow_range.contains(&days_left) {
+            return tabled::settings::Color::FG_YELLOW;
+        }
+
+        tabled::settings::Color::empty()
+    }
+}
+
 impl Display for Periodicity {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

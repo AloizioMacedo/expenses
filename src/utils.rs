@@ -5,12 +5,18 @@ use crate::model::{Expense, Payment, Periodicity};
 
 #[derive(Tabled)]
 pub(crate) struct RowDisplay<'a> {
-    expense_name: &'a str,
-    last_payment: String,
-    periodicity: Periodicity,
-    next_due_date: String,
-    days_left: i64,
+    pub(crate) expense_name: &'a str,
+    pub(crate) last_payment: String,
+    pub(crate) periodicity: Periodicity,
+    pub(crate) next_due_date: String,
+    pub(crate) days_left: i64,
     is_paid: &'static str,
+}
+
+impl<'a> RowDisplay<'a> {
+    pub(crate) fn is_paid(&self) -> bool {
+        self.is_paid == "✅"
+    }
 }
 
 fn get_next_due_date_aux(

@@ -7,6 +7,8 @@ use clap::{Parser, Subcommand};
 use color_eyre::eyre::Result;
 use rusqlite::{Connection, Error, ffi};
 use tabled::Table;
+use tabled::settings::Highlight;
+use tabled::settings::object::Rows;
 
 /// Expenses tracker
 #[derive(Parser)]
@@ -20,7 +22,11 @@ pub(crate) struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Lists all expenses
-    List,
+    List {
+        /// Adds color based on time left to pay
+        #[arg(short, long)]
+        color: bool,
+    },
     /// Adds an expense
     Add {
         /// Name of the expense. Will be used as an identifier
@@ -53,10 +59,23 @@ enum Commands {
 impl Cli {
     pub(crate) fn run(&self, conn: &Connection) -> Result<()> {
         match &self.command {
-            Commands::List => {
+            Commands::List { color } => {
                 let entries = get_entries(conn).unwrap();
                 let rows = generate_rows(&entries);
-                let table = Table::new(rows);
+                let mut table = Table::new(&rows);
+
+                if *color {
+                    for (i, row) in rows.iter().enumerate() {
+                        let color = if row.is_paid() {
+                            tabled::settings::Color::FG_GREEN
+                        } else {
+                            row.periodicity.get_row_color_on_time_left(row.days_left)
+                        };
+
+                        table.with(Highlight::colored(Rows::one(i + 1), color));
+                    }
+                }
+
                 println!("{table}");
             }
             Commands::Add { name, period, date } => {
